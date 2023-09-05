@@ -61,8 +61,32 @@ async def deleteGroup(id):
 async def GetImageById(id):
     sql = '''SELECT * FROM IMAGES WHERE ID = ?'''
     conn = sqlite3.connect(DATABASE)
+    conn.row_factory = dict_factory
     cur = conn.cursor()
     cur.execute(sql, (id,))
+    conn.commit()
+    result = cur.fetchall()
+    conn.close()
+    return result
+
+async def GetUrlById(id):
+    sql = '''SELECT URL FROM IMAGES WHERE ID = ?'''
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = dict_factory
+    cur = conn.cursor()
+    cur.execute(sql, (id,))
+    conn.commit()
+    result = cur.fetchall()
+    conn.close()
+    return result
+
+async def GetUrlsByIds(ids):
+    sql = '''SELECT URL FROM IMAGES WHERE ID IN '''
+    ids_str = '(' + str(ids)[1:-1] + ')'
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = dict_factory
+    cur = conn.cursor()
+    cur.execute(sql + ids_str)
     conn.commit()
     result = cur.fetchall()
     conn.close()
@@ -71,6 +95,7 @@ async def GetImageById(id):
 async def GetGroupById(id):
     sql = '''SELECT * FROM GROUPS WHERE GROUPID = ? '''
     conn = sqlite3.connect(DATABASE)
+    conn.row_factory = dict_factory
     cur = conn.cursor()
     cur.execute(sql, (id,))
     conn.commit()
