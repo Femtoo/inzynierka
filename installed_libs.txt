@@ -1,0 +1,12 @@
+numpy
+pydicom
+pandas
+opencv-python
+pillow
+openslide-python
+matplotlib
+pyvips
+fastapi
+uvicorn
+pyodbc
+python-multipart

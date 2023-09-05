@@ -1,0 +1,109 @@
+﻿@page "/imageslist"
+@using MedImagesClient.Models;
+@using Newtonsoft.Json;
+@inject HttpClient Http
+
+<PageTitle>Medical Images</PageTitle>
+
+<h1>Medical Images</h1>
+
+@if (images == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>GroupName</th>
+                <th>MetaData</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var image in images)
+            {
+                <tr>
+                    <td><input @onchange="() => CheckItem(image.Id)" class="form-check-input" type="checkbox" value=""></td>
+                    <td>@image.Title</td>
+                    <td>@image.Type</td>
+                    <td>@image.Description</td>
+                    <td>@image.GroupName</td>
+                    <td><button @onclick="() => Open(image.Metadata)">Show metadata</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+<div class="modal @ModalClass" tabindex="-1" role="dialog" style="display:@ModalDisplay">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Metadata</h5>
+                <button type="button" class="close" @onclick="() => Close()" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" >
+                @if (ModalText != null)
+                {
+                    foreach(var line in ModalText)
+                    {
+                        <p>@line</p>
+                    }
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => Close()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ImageData>? images;
+    private List<int> checkedItems = new();
+    public string ModalDisplay = "none;";
+    public string ModalClass = "";
+    public string[]? ModalText = null;
+    public bool ShowBackdrop = false;
+
+    public void Open(string metadata)
+    {
+        var modalbody = metadata.Split("\n");
+        ModalDisplay = "block;";
+        ModalClass = "Show";
+        ModalText = modalbody;
+        ShowBackdrop = true;
+        StateHasChanged();
+    }
+
+    public void CheckItem(int id)
+    {
+        if(checkedItems.Contains(id))
+        {
+            checkedItems.Remove(id);
+        } else
+        {
+            checkedItems.Add(id);
+        }
+    }
+
+    public void Close()
+    {
+        ModalDisplay = "none";
+        ModalClass = "";
+        ModalText = null;
+        ShowBackdrop = false;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        images = await Http.GetFromJsonAsync<List<ImageData>>("http://127.0.0.1:8000/getimages/");
+    }
+}

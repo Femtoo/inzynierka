@@ -1,0 +1,14 @@
+main:
+-upload plikow na cliencie - done
+-download plikow do clienta z serwera (pakujemy do zipa i elo)
+-tworzenie miniaturek :,,)
+-wsparcie dla miraxa (wszystkie pliki ladujemy i jesli mirax to .dat przerzucamy do folderu o nazwie filename)
+-wsparcie dla tiffa
+-usuwanie plikow
+-edycja description
+
+
+additional/nice to have:
+-wsparcie do uploadu zipow
+-group api - zmiany group itd
+-filtrowanie listy
