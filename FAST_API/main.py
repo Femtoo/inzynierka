@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import File, UploadFile, Form
 from dicom_service import getAttributesAndMakeMiniature
-from db_functions import addImage, addGroup, GetAllImages, deleteImage, deleteGroup, GetUrlsByIds
+from db_functions import GetImageById, addImage, addGroup, GetAllImages, deleteImage, deleteGroup, GetUrlsByIds
 from starlette.responses import FileResponse
 from typing import List
 from zipfile import ZipFile
@@ -90,6 +90,13 @@ async def download_images(ids: List[int]):
 async def download_zip(filename: str):
     zipUrl = os.path.join(STORAGE_PATH,filename)
     return FileResponse(zipUrl, media_type='multipart/form-data', filename='images.zip')
+
+@app.get("/showimage/")
+async def show_image(id: int):
+    img = await GetImageById(id)
+    filename = img['TITLE'].replace('.dcm','.jpg')
+    url = img['URL'].replace('.dcm','.jpg')
+    return FileResponse(url, media_type='multipart/form-data', filename=filename)
 
 @app.post("/downloadgroup")
 async def download_group():
