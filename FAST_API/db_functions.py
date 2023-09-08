@@ -67,7 +67,7 @@ async def GetImageById(id):
     conn.commit()
     result = cur.fetchall()
     conn.close()
-    return result
+    return result[0]
 
 async def GetUrlById(id):
     sql = '''SELECT URL FROM IMAGES WHERE ID = ?'''

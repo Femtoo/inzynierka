@@ -4,14 +4,14 @@ import numpy as np
 import math
 STORAGE_PATH = r'C:\Users\KT\inzynierka\storage'
 
-def getAttributesAndMakeMiniature(path):
+def getAttributesAndMakeMiniatureDCM(path):
     isMiniatured = True
     miniature_size = 256, 256
     pathJPG = path.replace('.dcm','.jpg')
     try:
         ds = dicom.dcmread(path)
     except Exception:
-        return ("", False)
+        return ("There was an error reading file", False)
     finally:
         try:
             shape = ds.pixel_array.shape

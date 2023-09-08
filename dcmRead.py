@@ -3,7 +3,7 @@ import os
 import cv2
 import PIL # optional
 # make it True if you want in PNG format
-PNG = True
+PNG = False
 # Specify the .dcm folder path
 folder_path = "dicom"
 # Specify the output jpg/png folder path
