@@ -3,7 +3,7 @@ main:
 -download plikow do clienta z serwera (pakujemy do zipa i elo) - done
 -tworzenie miniaturek :,,) - done
 -wsparcie dla miraxa (wszystkie pliki ladujemy i jesli mirax to .dat przerzucamy do folderu o nazwie filename) - done
--wsparcie dla tiffa
+-wsparcie dla tiffa - done
 -usuwanie plikow
 -edycja description
 

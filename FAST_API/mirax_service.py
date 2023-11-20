@@ -27,11 +27,11 @@ def getMetadataAndMakeMiniatureMRX(path):
     except Exception:
         return ("There was an error reading file", False)
     finally:
-        # try:
-        out = pyvips.Image.thumbnail(path, miniature_size)
-        out.write_to_file(pathJPG)
-        # except Exception:
-            # isMiniatured = False
+        try:
+            out = pyvips.Image.thumbnail(path, miniature_size)
+            out.write_to_file(pathJPG)
+        except Exception:
+            isMiniatured = False
         return (metadata, isMiniatured)
 
 

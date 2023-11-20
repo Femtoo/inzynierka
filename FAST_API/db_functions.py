@@ -49,6 +49,16 @@ async def deleteImage(id):
     conn.close()
     return
 
+async def deleteImages(ids):
+    ids = [(i,) for i in ids]
+    sql = '''DELETE FROM IMAGES WHERE ID = ?'''
+    conn = sqlite3.connect(DATABASE)
+    cur = conn.cursor()
+    cur.executemany(sql, ids)
+    conn.commit()
+    conn.close()
+    return
+
 async def deleteGroup(id):
     sql = '''DELETE FROM GROUPS WHERE GROUPID = ?'''
     conn = sqlite3.connect(DATABASE)

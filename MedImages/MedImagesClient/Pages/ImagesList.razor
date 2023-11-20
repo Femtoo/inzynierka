@@ -15,6 +15,7 @@
 else
 {
     <button class="btn btn-warning" @onclick="DownloadZip">Download Images</button>
+    <button class="btn btn-danger" @onclick="OpenDelete">Delete Images</button>
     @*<a class="btn" href="http://127.0.0.1:8000/downloadzip/?filename=images.zip" download="images.zip"
        role="button" target="=_top">download</a>*@
     @if(error != null)
@@ -42,7 +43,7 @@ else
                     <td>@image.Type</td>
                     <td>@image.Description</td>
                     <td>@image.GroupName</td>
-                    <td><button @onclick="() => Open(image.Metadata)">Show metadata</button></td>
+                    <td><button @onclick="() => OpenMetadata(image.Metadata)">Show metadata</button></td>
                     <td><img src="@string.Format("http://127.0.0.1:8000/showimage/?id={0}",image.Id)" /></td>
                 </tr>
             }
@@ -54,7 +55,7 @@ else
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Metadata</h5>
-                <button type="button" class="close" @onclick="() => Close()" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close" @onclick="() => CloseMetadata()" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -68,7 +69,21 @@ else
                 }
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => Close()">Close</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => CloseMetadata()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal @DeleteModalClass" tabindex="-1" role="dialog" style="display:@DeleteModalDisplay">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Are you Sure?</h5>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => DeleteImage()">Yes, Delete</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => CloseDelete()">Go back</button>
             </div>
         </div>
     </div>
@@ -79,17 +94,28 @@ else
     private List<int> checkedItems = new();
     public string ModalDisplay = "none;";
     public string ModalClass = "";
+    public string DeleteModalDisplay = "none;";
+    public string DeleteModalClass = "";
     public string[]? ModalText = null;
     public bool ShowBackdrop = false;
+    public bool DeleteShowBackdrop = false;
     private string? error = null;
 
-    public void Open(string metadata)
+    public void OpenMetadata(string metadata)
     {
         var modalbody = metadata.Split("\n");
         ModalDisplay = "block;";
         ModalClass = "Show";
         ModalText = modalbody;
         ShowBackdrop = true;
+        StateHasChanged();
+    }
+
+    public void OpenDelete()
+    {
+        DeleteModalDisplay = "block;";
+        DeleteModalClass = "Show";
+        DeleteShowBackdrop = true;
         StateHasChanged();
     }
 
@@ -104,12 +130,20 @@ else
         }
     }
 
-    public void Close()
+    public void CloseMetadata()
     {
         ModalDisplay = "none";
         ModalClass = "";
         ModalText = null;
         ShowBackdrop = false;
+        StateHasChanged();
+    }
+
+    public void CloseDelete()
+    {
+        DeleteModalDisplay = "none";
+        DeleteModalClass = "";
+        DeleteShowBackdrop = false;
         StateHasChanged();
     }
 
@@ -129,6 +163,17 @@ else
         string url = string.Format("http://127.0.0.1:8000/downloadzip/?filename={0}", filename.Substring(1,filename.Length-2));
 
         await JS.InvokeVoidAsync("blazorDownloadFile", "images.zip", url);
+    }
+
+    private async Task DeleteImage()
+    {
+        if(checkedItems.Count != 0)
+        {
+            var response = await Http.PostAsJsonAsync("http://127.0.0.1:8000/deleteimages/", checkedItems);
+            CloseDelete();
+            images = await Http.GetFromJsonAsync<List<ImageData>>("http://127.0.0.1:8000/getimages/");
+            checkedItems = new();
+        }
     }
 
     protected override async Task OnInitializedAsync()

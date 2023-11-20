@@ -4,7 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import File, UploadFile, Form
 from mirax_service import getMetadataAndMakeMiniatureMRX
 from dicom_service import getAttributesAndMakeMiniatureDCM
-from db_functions import GetImageById, addImage, addGroup, GetAllImages, deleteImage, deleteGroup, GetUrlsByIds
+from tiff_service import getMetadataAndMakeMiniatureTIFF
+from jpg_service import getMetadataAndMakeMiniatureJPG
+from db_functions import GetImageById, addImage, addGroup, GetAllImages, deleteImages, deleteGroup, GetUrlsByIds
 from starlette.responses import FileResponse
 from typing import List
 from zipfile import ZipFile
@@ -37,25 +39,26 @@ async def root():
 async def create_upload_files(files: List[UploadFile] = File(...), groupName: str = Form(...), description: str = Form(...)):
     uid = uuid.uuid4()
     groupID = str(uid)
-    path = os.path.join(STORAGE_PATH,groupID)
-    os.mkdir(path)
     errors = ""
     isAllowed = False
 
     for file in files:
         fileName = file.filename
-        print(fileName)
+        # print(fileName)
         fileExt = fileName.split('.')[-1]
-        if fileExt in ['dcm', 'zip']:
+        if fileExt in ['dcm', 'zip', 'tif', 'tiff', 'jpg', 'jpeg']:
             isAllowed = True
 
     if isAllowed == False:
         return {"message": "Not allowed format", }
+    
+    path = os.path.join(STORAGE_PATH,groupID)
+    os.mkdir(path)
 
     #copying files
     for file in files:
         fileName = file.filename
-        fileExt = fileName.split('.')[-1]
+        fileExt = fileName.split('.')[-1].lower()
 
         if fileExt == 'dcm':
             url = os.path.join(path,fileName)
@@ -89,6 +92,35 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
                 (metadata,isMiniatured) = getMetadataAndMakeMiniatureMRX(url.replace('.zip', '.mrxs'))
                 await addImage(fileName, 'mrxs', description, url, metadata, groupID, groupName)
                 await addGroup(groupID, groupName)
+        elif fileExt == 'tiff' or fileExt == 'tif':
+            url = os.path.join(path,fileName)
+            try:
+                with open(url, 'wb') as f:
+                    shutil.copyfileobj(file.file, f)
+            except Exception:
+                if len(os.listdir(path)) == 0:
+                    os.rmdir(path)
+                errors += "There was an error uploading the file {}".format(fileName)
+            finally:
+                file.file.close()
+                (metadata,isMiniatured) = getMetadataAndMakeMiniatureTIFF(url)
+                await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
+                await addGroup(groupID, groupName)
+        elif fileExt == 'jpg' or fileExt == 'jpeg':
+            url = os.path.join(path,fileName)
+            try:
+                with open(url, '') as f:
+                    shutil.copyfileobj(file.file, f)
+            except Exception:
+                if len(os.listdir(path)) == 0:
+                    os.rmdir(path)
+                errors += "There was an error uploading the file {}".format(fileName)
+            finally:
+                file.file.close()
+                (metadata,isMiniatured) = getMetadataAndMakeMiniatureJPG(url)
+                await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
+                await addGroup(groupID, groupName)
+
     return {"filenames": [file.filename for file in files], "errors": errors}
 
 @app.get("/getimages/")
@@ -96,15 +128,18 @@ async def get_images():
     images = await GetAllImages()
     return images
 
-@app.delete("/deleteimages/")
-async def delete_images(ids):
-    for id in ids:
-        deleteImage(id)
+@app.post("/deleteimages/")
+async def delete_images(ids: List[int]):
+    print(ids)
+    try:
+        await deleteImages(ids)
+    except:
+        return False
     return True
 
 @app.delete("/deletegroup/")
 async def delete_group(id):
-    deleteGroup(id)
+    await deleteGroup(id)
     return True
 
 @app.post("/downloadimages/")
@@ -126,9 +161,13 @@ async def download_zip(filename: str):
 async def show_image(id: int):
     img = await GetImageById(id)
     filename = img['TITLE'].replace('.dcm','.jpg')
-    filename = img['TITLE'].replace('.zip','.jpg')
+    filename = filename.replace('.zip','.jpg')
+    filename = filename.replace('.tiff','.jpg')
+    filename = filename.replace('.tif','.jpg')
     url = img['URL'].replace('.dcm','.jpg')
-    url = img['URL'].replace('.zip','.jpg')
+    url = url.replace('.zip','.jpg')
+    url = url.replace('.tiff','.jpg')
+    url = url.replace('.tif','.jpg')
     return FileResponse(url, media_type='multipart/form-data', filename=filename)
 
 @app.post("/downloadgroup")
