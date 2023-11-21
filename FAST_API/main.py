@@ -40,17 +40,17 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
     uid = uuid.uuid4()
     groupID = str(uid)
     errors = ""
-    isAllowed = False
+    # isAllowed = False
 
-    for file in files:
-        fileName = file.filename
-        # print(fileName)
-        fileExt = fileName.split('.')[-1]
-        if fileExt in ['dcm', 'zip', 'tif', 'tiff', 'jpg', 'jpeg']:
-            isAllowed = True
+    # for file in files:
+    #     fileName = file.filename
+    #     # print(fileName)
+    #     fileExt = fileName.split('.')[-1]
+    #     if fileExt in ['dcm', 'zip', 'tif', 'tiff', 'jpg', 'jpeg']:
+    #         isAllowed = True
 
-    if isAllowed == False:
-        return {"message": "Not allowed format", }
+    # if isAllowed == False:
+    #     return {"message": "Not allowed format", }
     
     path = os.path.join(STORAGE_PATH,groupID)
     os.mkdir(path)
@@ -59,15 +59,16 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
     for file in files:
         fileName = file.filename
         fileExt = fileName.split('.')[-1].lower()
+        fileName = fileName.replace(fileName.split('.')[-1], fileExt)
+        url = os.path.join(path,fileName)
 
         if fileExt == 'dcm':
-            url = os.path.join(path,fileName)
             try:
                 with open(url, 'wb') as f:
                     shutil.copyfileobj(file.file, f)
             except Exception:
-                if len(os.listdir(path)) == 0:
-                    os.rmdir(path)
+                # if len(os.listdir(path)) == 0:
+                #     os.rmdir(path)
                 errors += "There was an error uploading the file {}".format(fileName)
             finally:
                 file.file.close()
@@ -76,13 +77,12 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
                 await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
                 await addGroup(groupID, groupName)
         elif fileExt == 'zip':
-            url = os.path.join(path,fileName)
             try:
                 with open(url, 'wb') as f:
                     shutil.copyfileobj(file.file, f)
             except Exception:
-                if len(os.listdir(path)) == 0:
-                    os.rmdir(path)
+                # if len(os.listdir(path)) == 0:
+                #     os.rmdir(path)
                 errors += "There was an error uploading the file {}".format(fileName)
             finally:
                 file.file.close()
@@ -93,13 +93,12 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
                 await addImage(fileName, 'mrxs', description, url, metadata, groupID, groupName)
                 await addGroup(groupID, groupName)
         elif fileExt == 'tiff' or fileExt == 'tif':
-            url = os.path.join(path,fileName)
             try:
                 with open(url, 'wb') as f:
                     shutil.copyfileobj(file.file, f)
             except Exception:
-                if len(os.listdir(path)) == 0:
-                    os.rmdir(path)
+                # if len(os.listdir(path)) == 0:
+                #     os.rmdir(path)
                 errors += "There was an error uploading the file {}".format(fileName)
             finally:
                 file.file.close()
@@ -107,19 +106,20 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
                 await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
                 await addGroup(groupID, groupName)
         elif fileExt == 'jpg' or fileExt == 'jpeg':
-            url = os.path.join(path,fileName)
             try:
-                with open(url, '') as f:
+                with open(url, 'wb') as f:
                     shutil.copyfileobj(file.file, f)
             except Exception:
-                if len(os.listdir(path)) == 0:
-                    os.rmdir(path)
+                # if len(os.listdir(path)) == 0:
+                #     os.rmdir(path)
                 errors += "There was an error uploading the file {}".format(fileName)
             finally:
                 file.file.close()
                 (metadata,isMiniatured) = getMetadataAndMakeMiniatureJPG(url)
                 await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
                 await addGroup(groupID, groupName)
+        else:
+            errors += "There was an error uploading the file {} - wrong format".format(fileName)
 
     return {"filenames": [file.filename for file in files], "errors": errors}
 
@@ -130,10 +130,13 @@ async def get_images():
 
 @app.post("/deleteimages/")
 async def delete_images(ids: List[int]):
-    print(ids)
     try:
+        urls = await GetUrlsByIds(ids)
+        for url in urls:
+            os.remove(get_miniature_suffix(url['URL']))
+            os.remove(url['URL'])
         await deleteImages(ids)
-    except:
+    except Exception:
         return False
     return True
 
@@ -160,17 +163,20 @@ async def download_zip(filename: str):
 @app.get("/showimage/")
 async def show_image(id: int):
     img = await GetImageById(id)
-    filename = img['TITLE'].replace('.dcm','.jpg')
-    filename = filename.replace('.zip','.jpg')
-    filename = filename.replace('.tiff','.jpg')
-    filename = filename.replace('.tif','.jpg')
-    url = img['URL'].replace('.dcm','.jpg')
-    url = url.replace('.zip','.jpg')
-    url = url.replace('.tiff','.jpg')
-    url = url.replace('.tif','.jpg')
+    filename = get_miniature_suffix(img['TITLE'])
+    url = get_miniature_suffix(img['URL'])
+    print(str(url) + " " + str(filename))
     return FileResponse(url, media_type='multipart/form-data', filename=filename)
 
-@app.post("/downloadgroup")
+@app.post("/downloadgroup/")
 async def download_group():
 
     return FileResponse()
+
+def get_miniature_suffix(data):
+    fileEXT = "." + data.split('.')[-1]
+    if fileEXT in ['.jpg', '.jpeg']:
+        miniatureURL = data.replace(fileEXT, 'Miniature$$#%^&.jpg')
+    else:
+        miniatureURL = data.replace(fileEXT, '.jpg')
+    return miniatureURL
