@@ -14,6 +14,7 @@ import shutil
 import sqlite3
 import uuid
 import os
+from os.path import basename
 
 STORAGE_PATH = r'C:\Users\KT\inzynierka\storage'
 
@@ -151,7 +152,7 @@ async def download_images(ids: List[int]):
     with ZipFile(zipUrl, 'w') as zip_object:
         urls = await GetUrlsByIds(ids)
         for url in urls:
-            zip_object.write(url['URL'])
+            zip_object.write(url['URL'], basename(url['URL']))
 
     return "images.zip"
 
