@@ -17,9 +17,7 @@ async def addImage(title, type, description, url, metadata, groupID, groupNAME):
 async def addGroup(groupID, groupNAME):
     sql = '''INSERT INTO GROUPS (GROUPNAME, GROUPID) VALUES (?, ?)'''
     arg = (groupNAME, groupID)
-    print(groupID)
     isAlready = await GetGroupById(groupID)
-    print(isAlready)
     if(len(isAlready) != 0):
         return
 

@@ -1,7 +1,6 @@
 import zipfile
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import File, UploadFile, Form
 from mirax_service import getMetadataAndMakeMiniatureMRX
 from dicom_service import getAttributesAndMakeMiniatureDCM
 from tiff_service import getMetadataAndMakeMiniatureTIFF
@@ -62,8 +61,9 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
         fileExt = fileName.split('.')[-1].lower()
         fileName = fileName.replace(fileName.split('.')[-1], fileExt)
         url = os.path.join(path,fileName)
+        isCopied = True
 
-        if fileExt == 'dcm':
+        if fileExt in ['dcm', 'zip', 'tif', 'tiff', 'jpg', 'jpeg']:
             try:
                 with open(url, 'wb') as f:
                     shutil.copyfileobj(file.file, f)
@@ -71,56 +71,31 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
                 # if len(os.listdir(path)) == 0:
                 #     os.rmdir(path)
                 errors += "There was an error uploading the file {}".format(fileName)
+                isCopied = False
             finally:
                 file.file.close()
-                #adding to db
+
+        if isCopied:
+            if fileExt == 'dcm':
                 (metadata,isMiniatured) = getAttributesAndMakeMiniatureDCM(url)
                 await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
                 await addGroup(groupID, groupName)
-        elif fileExt == 'zip':
-            try:
-                with open(url, 'wb') as f:
-                    shutil.copyfileobj(file.file, f)
-            except Exception:
-                # if len(os.listdir(path)) == 0:
-                #     os.rmdir(path)
-                errors += "There was an error uploading the file {}".format(fileName)
-            finally:
-                file.file.close()
+            elif fileExt == 'zip':
                 with zipfile.ZipFile(url, 'r') as zip_ref:
                     zip_ref.extractall(path)
-                #adding to db
                 (metadata,isMiniatured) = getMetadataAndMakeMiniatureMRX(url.replace('.zip', '.mrxs'))
                 await addImage(fileName, 'mrxs', description, url, metadata, groupID, groupName)
                 await addGroup(groupID, groupName)
-        elif fileExt == 'tiff' or fileExt == 'tif':
-            try:
-                with open(url, 'wb') as f:
-                    shutil.copyfileobj(file.file, f)
-            except Exception:
-                # if len(os.listdir(path)) == 0:
-                #     os.rmdir(path)
-                errors += "There was an error uploading the file {}".format(fileName)
-            finally:
-                file.file.close()
+            elif fileExt == 'tiff' or fileExt == 'tif':
                 (metadata,isMiniatured) = getMetadataAndMakeMiniatureTIFF(url)
                 await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
                 await addGroup(groupID, groupName)
-        elif fileExt == 'jpg' or fileExt == 'jpeg':
-            try:
-                with open(url, 'wb') as f:
-                    shutil.copyfileobj(file.file, f)
-            except Exception:
-                # if len(os.listdir(path)) == 0:
-                #     os.rmdir(path)
-                errors += "There was an error uploading the file {}".format(fileName)
-            finally:
-                file.file.close()
+            elif fileExt == 'jpg' or fileExt == 'jpeg':
                 (metadata,isMiniatured) = getMetadataAndMakeMiniatureJPG(url)
                 await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
                 await addGroup(groupID, groupName)
-        else:
-            errors += "There was an error uploading the file {} - wrong format".format(fileName)
+            else:
+                errors += "There was an error uploading the file {} - wrong format".format(fileName)
 
     return {"filenames": [file.filename for file in files], "errors": errors}
 
@@ -148,17 +123,20 @@ async def delete_group(id):
 
 @app.post("/downloadimages/")
 async def download_images(ids: List[int]):
-    zipUrl = os.path.join(STORAGE_PATH,"images.zip")
+    uid = uuid.uuid4()
+    zipName = str(uid)
+    zipUrl = os.path.join(STORAGE_PATH,zipName)
     with ZipFile(zipUrl, 'w') as zip_object:
         urls = await GetUrlsByIds(ids)
         for url in urls:
             zip_object.write(url['URL'], basename(url['URL']))
 
-    return "images.zip"
+    return zipName
 
 @app.get("/downloadzip/")
-async def download_zip(filename: str):
+async def download_zip(filename: str, background_tasks: BackgroundTasks):
     zipUrl = os.path.join(STORAGE_PATH,filename)
+    background_tasks.add_task(delete_zip_package, zipUrl)
     return FileResponse(zipUrl, media_type='multipart/form-data', filename='images.zip')
 
 @app.get("/showimage/")
@@ -166,7 +144,7 @@ async def show_image(id: int):
     img = await GetImageById(id)
     filename = get_miniature_suffix(img['TITLE'])
     url = get_miniature_suffix(img['URL'])
-    print(str(url) + " " + str(filename))
+    # print(str(url) + " " + str(filename))
     return FileResponse(url, media_type='multipart/form-data', filename=filename)
 
 @app.post("/downloadgroup/")
@@ -181,3 +159,6 @@ def get_miniature_suffix(data):
     else:
         miniatureURL = data.replace(fileEXT, '.jpg')
     return miniatureURL
+
+def delete_zip_package(zipPackageUrl :str):
+    os.remove(zipPackageUrl)
