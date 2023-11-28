@@ -9,7 +9,6 @@ if hasattr(os, 'add_dll_directory'):
     # Python >= 3.8 on Windows
     with os.add_dll_directory(VIPS_PATH):
         import pyvips
-        print("loaded")
 else:
     import pyvips
 

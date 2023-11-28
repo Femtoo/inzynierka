@@ -122,6 +122,17 @@ async def GetAllImages():
     conn.close()
     return result
 
+async def GetAllGroups():
+    sql = '''SELECT * FROM GROUPS'''
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = dict_factory
+    cur = conn.cursor()
+    cur.execute(sql)
+    conn.commit()
+    result = cur.fetchall()
+    conn.close()
+    return result
+
 def dict_factory(cursor, row):
     d = {}
     for idx, col in enumerate(cursor.description):

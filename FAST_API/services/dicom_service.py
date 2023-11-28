@@ -2,7 +2,6 @@ import pydicom as dicom
 from PIL import Image
 import numpy as np
 import math
-STORAGE_PATH = r'C:\Users\KT\inzynierka\storage'
 
 def getAttributesAndMakeMiniatureDCM(path):
     isMiniatured = True

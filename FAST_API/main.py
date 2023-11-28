@@ -1,10 +1,10 @@
 import zipfile
 from fastapi import BackgroundTasks, FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from mirax_service import getMetadataAndMakeMiniatureMRX
-from dicom_service import getAttributesAndMakeMiniatureDCM
-from tiff_service import getMetadataAndMakeMiniatureTIFF
-from jpg_service import getMetadataAndMakeMiniatureJPG
+from services.mirax_service import getMetadataAndMakeMiniatureMRX
+from services.dicom_service import getAttributesAndMakeMiniatureDCM
+from services.tiff_service import getMetadataAndMakeMiniatureTIFF
+from services.jpg_service import getMetadataAndMakeMiniatureJPG
 from db_functions import GetImageById, addImage, addGroup, GetAllImages, deleteImages, deleteGroup, GetUrlsByIds
 from starlette.responses import FileResponse
 from typing import List
@@ -101,6 +101,11 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
 
 @app.get("/getimages/")
 async def get_images():
+    images = await GetAllImages()
+    return images
+
+@app.get("/getgroups/")
+async def get_groups():
     images = await GetAllImages()
     return images
 
