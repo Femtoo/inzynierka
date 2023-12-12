@@ -9,6 +9,7 @@ def getAttributesAndMakeMiniatureDCM(path):
     pathJPG = path.replace('.dcm','.jpg')
     try:
         ds = dicom.dcmread(path)
+        # print(str(ds))
     except Exception:
         return ("There was an error reading file", False)
     finally:
@@ -59,7 +60,7 @@ def getAttributesAndMakeMiniatureDCM(path):
             isMiniatured=False
         return (str(ds),isMiniatured)
 
-# print(getAttributesAndMakeMiniature('DCM_0.dcm'))
+getAttributesAndMakeMiniatureDCM(r'C:\Users\KT\inzynierka\testdata\DCM_1.dcm')
 # metadata, ismin = getAttributesAndMakeMiniature('DCM_1.dcm')
 # print(ismin)
 # print(metadata)

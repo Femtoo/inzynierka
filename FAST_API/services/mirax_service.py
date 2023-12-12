@@ -16,25 +16,33 @@ def getMetadataAndMakeMiniatureMRX(path):
     miniature_size = 256
     isMiniatured = True
     pathJPG = path.replace('.mrxs','.jpg')
+    metadata = ""
+    # header = pyvips.Image.header(path)
+    # print(header)
     try:
         image = pyvips.Image.new_from_file(path, access='sequential')
-        metadata = ""
+        # image.dzsave('overview.jpg', suffix=".jpg", tile_size=256, overlap=0, centre=True, skip_blanks=1)
+        # print(str(image.get_fields()))
         fields = image.get_fields()
         for field in fields:
             value = image.get(field)
             metadata += f"{field}: {value}\n"
-    except Exception:
+        # print(metadata)
+    except Exception as e:
+        print(e)
         return ("There was an error reading file", False)
     finally:
         try:
             out = pyvips.Image.thumbnail(path, miniature_size)
             out.write_to_file(pathJPG)
-        except Exception:
+        except Exception as e:
+            print(e)
             isMiniatured = False
         return (metadata, isMiniatured)
 
 
-# filein='Mirax2-Fluorescence-1/Mirax2-Fluorescence-1.mrxs'
+# filein=r'C:\Users\KT\inzynierka\testdata\mirax\Mirax2-Fluorescence-1.mrxs'
+# getMetadataAndMakeMiniatureMRX(filein)
 # fileout='Mirax.jpg'
 # scale=1 
 

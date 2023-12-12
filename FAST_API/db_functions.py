@@ -88,6 +88,17 @@ async def GetUrlById(id):
     conn.close()
     return result
 
+async def GetImagesByGroupId(id):
+    sql = '''SELECT * FROM IMAGES WHERE GROUPID = ?  '''
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = dict_factory
+    cur = conn.cursor()
+    cur.execute(sql, (id,))
+    conn.commit()
+    result = cur.fetchall()
+    conn.close()
+    return result
+
 async def GetUrlsByIds(ids):
     sql = '''SELECT URL FROM IMAGES WHERE ID IN '''
     ids_str = '(' + str(ids)[1:-1] + ')'
