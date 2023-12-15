@@ -5,7 +5,7 @@ from services.mirax_service import getMetadataAndMakeMiniatureMRX
 from services.dicom_service import getAttributesAndMakeMiniatureDCM
 from services.tiff_service import getMetadataAndMakeMiniatureTIFF
 from services.jpg_service import getMetadataAndMakeMiniatureJPG
-from db_functions import GetImageById, addImage, addGroup, GetAllImages, deleteImages, deleteGroup, GetUrlsByIds, GetAllGroups, GetImagesByGroupId
+from db_functions import GetImageById, addImage, addGroup, GetAllImages, deleteImages, deleteGroup, GetUrlsByIds, GetAllGroups, GetImagesByGroupId, GetImages, UpdateImagesGroup, UpdateImagesURL, GetGroupById
 from starlette.responses import FileResponse
 from typing import List
 from zipfile import ZipFile
@@ -31,29 +31,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World", }
-
 @app.post("/uploadimages/")
 async def create_upload_files(files: List[UploadFile] = File(...), groupName: str = Form(...), description: str = Form(...)):
     uid = uuid.uuid4()
     groupID = str(uid)
     errors = ""
-    # isAllowed = False
-
-    # for file in files:
-    #     fileName = file.filename
-    #     # print(fileName)
-    #     fileExt = fileName.split('.')[-1]
-    #     if fileExt in ['dcm', 'zip', 'tif', 'tiff', 'jpg', 'jpeg']:
-    #         isAllowed = True
-
-    # if isAllowed == False:
-    #     return {"message": "Not allowed format", }
     
     path = os.path.join(STORAGE_PATH,groupID)
     os.mkdir(path)
+
+    await addGroup(groupID, groupName)
 
     #copying files
     for file in files:
@@ -77,10 +64,11 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
 
         if isCopied:
             if fileExt == 'dcm':
+                imageType = 'DICOM'
                 (metadata,isMiniatured) = getAttributesAndMakeMiniatureDCM(url)
-                await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
-                await addGroup(groupID, groupName)
+                await addImage(fileName, imageType, description, url, metadata, groupID, groupName)
             elif fileExt == 'zip':
+                imageType = 'MIRAX'
                 fileValidation = fileName.split('.')[0]
                 fileValidationName = fileValidation + '.mrxs'
                 fileValidationDirectory = fileValidation +'/'
@@ -93,18 +81,15 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
                         os.remove(url)
                         continue
                 (metadata,isMiniatured) = getMetadataAndMakeMiniatureMRX(url.replace('.zip', '.mrxs'))
-                await addImage(fileName, 'mrxs', description, url, metadata, groupID, groupName)
-                await addGroup(groupID, groupName)
+                await addImage(fileName, imageType, description, url, metadata, groupID, groupName)
                 os.remove(os.path.join(path,fileValidationName))
                 shutil.rmtree(os.path.join(path,fileValidationDirectory))
             elif fileExt == 'tiff' or fileExt == 'tif':
                 (metadata,isMiniatured) = getMetadataAndMakeMiniatureTIFF(url)
                 await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
-                await addGroup(groupID, groupName)
             elif fileExt == 'jpg' or fileExt == 'jpeg':
                 (metadata,isMiniatured) = getMetadataAndMakeMiniatureJPG(url)
                 await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
-                await addGroup(groupID, groupName)
             else:
                 errors += "There was an error uploading the file {} - wrong format".format(fileName)
 
@@ -132,9 +117,34 @@ async def delete_images(ids: List[int]):
         return False
     return True
 
-@app.delete("/deletegroup/")
+@app.delete("/deletegroup/{id}")
 async def delete_group(id):
-    await deleteGroup(id)
+    try:
+        images = await GetImagesByGroupId(id)
+        ids = [img['ID'] for img in images]
+        urls = await GetUrlsByIds(ids)
+        await deleteImages(ids)
+        await deleteGroup(id)
+        shutil.rmtree(os.path.join(STORAGE_PATH, id))
+    except Exception:
+        return False
+    return True
+
+@app.post("/updategroup/")
+async def update_group(ids: List[int], groupID: str):
+    groupPath = os.path.join(STORAGE_PATH, groupID)
+    try:
+        group = await GetGroupById(groupID)
+        imgs = await GetImages(ids)
+        await UpdateImagesGroup(ids, groupID, group['GROUPNAME'])
+        await UpdateImagesURL(imgs, groupPath)
+        print("yuyuyu")
+        for img in imgs:
+            shutil.move(img['URL'], os.path.join(groupPath, img['TITLE']))
+            shutil.move(get_miniature_suffix(img['URL']), os.path.join(groupPath, get_miniature_suffix(img['TITLE'])))
+    except Exception as e:
+        print(e)
+        return False
     return True
 
 @app.post("/downloadimages/")
@@ -163,7 +173,7 @@ async def show_image(id: int):
     # print(str(url) + " " + str(filename))
     return FileResponse(url, media_type='multipart/form-data', filename=filename)
 
-@app.post("/downloadgroup/")
+@app.get("/downloadgroup/{id}")
 async def download_group(id: str):
     uid = uuid.uuid4()
     zipName = str(uid)

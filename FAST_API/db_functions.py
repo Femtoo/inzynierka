@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import json
 
@@ -17,9 +18,9 @@ async def addImage(title, type, description, url, metadata, groupID, groupNAME):
 async def addGroup(groupID, groupNAME):
     sql = '''INSERT INTO GROUPS (GROUPNAME, GROUPID) VALUES (?, ?)'''
     arg = (groupNAME, groupID)
-    isAlready = await GetGroupById(groupID)
-    if(len(isAlready) != 0):
-        return
+    # isAlready = await GetGroupById(groupID)
+    # if(len(isAlready) != 0):
+    #     return
 
     conn = sqlite3.connect(DATABASE)
     cur = conn.cursor()
@@ -28,12 +29,36 @@ async def addGroup(groupID, groupNAME):
     conn.close()
     return
 
-async def updateMetadata(id, metadata):
-    sql = '''UPDATE IMAGES SET METADATA='?' WHERE ID = ?'''
-    arg = (metadata, id)
+# async def updateMetadata(id, metadata):
+#     sql = '''UPDATE IMAGES SET METADATA='?' WHERE ID = ?'''
+#     arg = (metadata, id)
+#     conn = sqlite3.connect(DATABASE)
+#     cur = conn.cursor()
+#     cur.execute(sql, arg)
+#     conn.commit()
+#     conn.close()
+#     return
+
+async def UpdateImagesGroup(ids, groupID, groupNAME):
+    sql = '''UPDATE IMAGES SET GROUPID=? WHERE ID IN '''
+    sql2 = '''UPDATE IMAGES SET GROUPNAME=? WHERE ID IN '''
+    ids_str = '(' + str(ids)[1:-1] + ');'
     conn = sqlite3.connect(DATABASE)
     cur = conn.cursor()
-    cur.execute(sql, arg)
+    cur.execute(sql + ids_str, (groupID,))
+    cur.execute(sql2 + ids_str, (groupNAME,))
+    conn.commit()
+    conn.close()
+    return 
+
+async def UpdateImagesURL(imgs, pathToGroup):
+    conn = sqlite3.connect(DATABASE)
+    cur = conn.cursor()
+    for img in imgs:
+        newURL = os.path.join(pathToGroup, img['TITLE'])
+        sql = '''UPDATE IMAGES SET URL = ? WHERE ID = ? '''
+        arg = (newURL, img['ID'])
+        cur.execute(sql, arg)
     conn.commit()
     conn.close()
     return
@@ -117,6 +142,18 @@ async def GetGroupById(id):
     conn.row_factory = dict_factory
     cur = conn.cursor()
     cur.execute(sql, (id,))
+    conn.commit()
+    result = cur.fetchall()
+    conn.close()
+    return result[0]
+
+async def GetImages(ids):
+    sql = '''SELECT * FROM IMAGES WHERE ID IN '''
+    ids_str = '(' + str(ids)[1:-1] + ')'
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = dict_factory
+    cur = conn.cursor()
+    cur.execute(sql + ids_str)
     conn.commit()
     result = cur.fetchall()
     conn.close()

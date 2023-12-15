@@ -1,0 +1,102 @@
+﻿@page "/groupslist"
+@using MedImagesClient.Models;
+@using Newtonsoft.Json;
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Groups</PageTitle>
+
+<h1>Groups</h1>
+
+@if (groups == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    @if (error != null)
+    {
+        <span class="text-danger">@error</span>
+    }
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var image in groups)
+            {
+                <tr>
+                    <td>@image.GroupName</td>
+                    <td><button class="btn btn-danger" @onclick="() => OpenDelete(image.GroupId)">Delete Group</button></td>
+                    <td><button @onclick="() => DownloadZip(image.GroupId)">Download</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<div class="modal @DeleteModalClass" tabindex="-1" role="dialog" style="display:@DeleteModalDisplay">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Are you Sure?</h5>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => DeleteGroup()">Yes, Delete</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => CloseDelete()">Go back</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ImageGroup>? groups;
+    public string DeleteModalDisplay = "none;";
+    public string DeleteModalClass = "";
+    public bool DeleteShowBackdrop = false;
+    private string? error = null;
+    private string? deleteGroup = null;
+
+    public void OpenDelete(string groupId)
+    {
+        deleteGroup = groupId;
+        DeleteModalDisplay = "block;";
+        DeleteModalClass = "Show";
+        DeleteShowBackdrop = true;
+        StateHasChanged();
+    }
+
+    public void CloseDelete()
+    {
+        deleteGroup = null;
+        DeleteModalDisplay = "none";
+        DeleteModalClass = "";
+        DeleteShowBackdrop = false;
+        StateHasChanged();
+    }
+
+    private async Task DownloadZip(string groupId)
+    {
+        var response = await Http.GetAsync($"http://127.0.0.1:8000/downloadgroup/{groupId}");
+        var filename = await response.Content.ReadAsStringAsync();
+        string url = string.Format("http://127.0.0.1:8000/downloadzip/?filename={0}", filename.Substring(1, filename.Length - 2));
+
+        await JS.InvokeVoidAsync("blazorDownloadFile", "images.zip", url);
+    }
+
+    private async Task DeleteGroup()
+    {
+        var response = await Http.DeleteAsync($"http://127.0.0.1:8000/deletegroup/{deleteGroup}");
+        CloseDelete();
+        groups = await Http.GetFromJsonAsync<List<ImageGroup>>("http://127.0.0.1:8000/getgroups/");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        groups = await Http.GetFromJsonAsync<List<ImageGroup>>("http://127.0.0.1:8000/getgroups/");
+    }
+}
