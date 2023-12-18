@@ -9,6 +9,9 @@ from db_functions import GetImageById, addImage, addGroup, GetAllImages, deleteI
 from starlette.responses import FileResponse
 from typing import List
 from zipfile import ZipFile
+from logging.config import dictConfig
+import logging
+from logconf import LogConfig
 import shutil
 import sqlite3
 import uuid
@@ -17,6 +20,8 @@ from os.path import basename
 
 STORAGE_PATH = r'C:\Users\KT\inzynierka\storage'
 
+dictConfig(LogConfig().model_dump())
+logger = logging.getLogger("main_logger")
 app = FastAPI()
 
 origins = [
