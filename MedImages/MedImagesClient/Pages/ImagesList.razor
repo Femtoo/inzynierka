@@ -44,7 +44,7 @@ else
                     <td>@image.Description</td>
                     <td>@image.GroupName</td>
                     <td><button @onclick="() => OpenMetadata(image.Metadata)">Show metadata</button></td>
-                    <td><img src="@string.Format("http://127.0.0.1:8000/showimage/?id={0}",image.Id)" /></td>
+                    <td><img src="@string.Format("http://127.0.0.1:8000/showimage/?id={0}",image.Id)" width="200" height="200" /></td>
                 </tr>
             }
         </tbody>

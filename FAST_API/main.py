@@ -5,6 +5,7 @@ from services.mirax_service import getMetadataAndMakeMiniatureMRX
 from services.dicom_service import getAttributesAndMakeMiniatureDCM
 from services.tiff_service import getMetadataAndMakeMiniatureTIFF
 from services.jpg_service import getMetadataAndMakeMiniatureJPG
+from services.vips_service import getMetadataAndMakeMiniatureVips
 from db_functions import GetImageById, addImage, addGroup, GetAllImages, deleteImages, deleteGroup, GetUrlsByIds, GetAllGroups, GetImagesByGroupId, GetImages, UpdateImagesGroup, UpdateImagesURL, GetGroupById
 from starlette.responses import FileResponse
 from typing import List
@@ -19,6 +20,7 @@ import os
 from os.path import basename
 
 STORAGE_PATH = r'C:\Users\KT\inzynierka\storage'
+WORK_DIR_PATH = r'C:\Users\KT\inzynierka\processImagesDir'
 
 dictConfig(LogConfig().model_dump())
 logger = logging.getLogger("main_logger")
@@ -41,6 +43,7 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
     uid = uuid.uuid4()
     groupID = str(uid)
     errors = ""
+    file_formats = ['dcm', 'zip', 'tif', 'tiff', 'jpg', 'jpeg', 'svs', 'vms', 'vmu', 'ndpi', 'scn', 'svslide', 'bif']
     
     path = os.path.join(STORAGE_PATH,groupID)
     os.mkdir(path)
@@ -55,7 +58,7 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
         url = os.path.join(path,fileName)
         isCopied = True
 
-        if fileExt in ['dcm', 'zip', 'tif', 'tiff', 'jpg', 'jpeg']:
+        if fileExt in file_formats:
             try:
                 with open(url, 'wb') as f:
                     shutil.copyfileobj(file.file, f)
@@ -66,6 +69,9 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
                 isCopied = False
             finally:
                 file.file.close()
+        else:
+            errors += "There was an error uploading the file {} - wrong format".format(fileName)
+            isCopied = False
 
         if isCopied:
             if fileExt == 'dcm':
@@ -73,30 +79,50 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
                 (metadata,isMiniatured) = getAttributesAndMakeMiniatureDCM(url)
                 await addImage(fileName, imageType, description, url, metadata, groupID, groupName)
             elif fileExt == 'zip':
-                imageType = 'MIRAX'
-                fileValidation = fileName.split('.')[0]
-                fileValidationName = fileValidation + '.mrxs'
-                fileValidationDirectory = fileValidation +'/'
+                imageName = ''
+                newuid = uuid.uuid4()
+                workDirID = str(newuid)
+                workDirPath = os.path.join(WORK_DIR_PATH,workDirID)
                 with zipfile.ZipFile(url, 'r') as zip_ref:
-                    if all(item in zip_ref.namelist() for item in [fileValidationName, fileValidationDirectory]):
-                        zip_ref.extractall(path)
+                    isFound, imageName = check_and_get_file_name(url, file_formats)
+                    if isFound:
+                        zip_ref.extractall(workDirPath)
                     else:
                         errors += "There was an error uploading the file {} - wrong zip structure".format(fileName)
                         zip_ref.close()
                         os.remove(url)
+                        shutil.rmtree(workDirPath)
                         continue
-                (metadata,isMiniatured) = getMetadataAndMakeMiniatureMRX(url.replace('.zip', '.mrxs'))
-                await addImage(fileName, imageType, description, url, metadata, groupID, groupName)
-                os.remove(os.path.join(path,fileValidationName))
-                shutil.rmtree(os.path.join(path,fileValidationDirectory))
-            elif fileExt == 'tiff' or fileExt == 'tif':
-                (metadata,isMiniatured) = getMetadataAndMakeMiniatureTIFF(url)
-                await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
+                (metadata,isMiniatured) = getMetadataAndMakeMiniatureVips(os.path.join(workDirPath, imageName), url)
+                await addImage(fileName, 'vips', description, url, metadata, groupID, groupName)
+                shutil.rmtree(workDirPath)
+                
+            # elif fileExt == 'zip':
+            #     imageType = 'MIRAX'
+            #     fileValidation = fileName.split('.')[0]
+            #     fileValidationName = fileValidation + '.mrxs'
+            #     fileValidationDirectory = fileValidation +'/'
+            #     with zipfile.ZipFile(url, 'r') as zip_ref:
+            #         if all(item in zip_ref.namelist() for item in [fileValidationName, fileValidationDirectory]):
+            #             zip_ref.extractall(path)
+            #         else:
+            #             errors += "There was an error uploading the file {} - wrong zip structure".format(fileName)
+            #             zip_ref.close()
+            #             os.remove(url)
+            #             continue
+            #     (metadata,isMiniatured) = getMetadataAndMakeMiniatureMRX(url.replace('.zip', '.mrxs'))
+            #     await addImage(fileName, imageType, description, url, metadata, groupID, groupName)
+            #     os.remove(os.path.join(path,fileValidationName))
+            #     shutil.rmtree(os.path.join(path,fileValidationDirectory))
+            # elif fileExt == 'tiff' or fileExt == 'tif':
+            #     (metadata,isMiniatured) = getMetadataAndMakeMiniatureTIFF(url)
+            #     await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
             elif fileExt == 'jpg' or fileExt == 'jpeg':
                 (metadata,isMiniatured) = getMetadataAndMakeMiniatureJPG(url)
                 await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
             else:
-                errors += "There was an error uploading the file {} - wrong format".format(fileName)
+                (metadata,isMiniatured) = getMetadataAndMakeMiniatureVips(url, url)
+                await addImage(fileName, 'vips', description, url, metadata, groupID, groupName)
 
     return {"filenames": [file.filename for file in files], "errors": errors}
 
@@ -201,3 +227,11 @@ def get_miniature_suffix(data):
 
 def delete_zip_package(zipPackageUrl :str):
     os.remove(zipPackageUrl)
+
+def check_and_get_file_name(zip_file_path, file_formats):
+    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+        for item in file_formats:
+            for file_name in zip_ref.namelist():
+                if '.' + item in file_name.lower():
+                    return True, file_name
+    return False, None
