@@ -43,13 +43,13 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
     uid = uuid.uuid4()
     groupID = str(uid)
     errors = ""
-    file_formats = ['dcm', 'zip', 'tif', 'tiff', 'jpg', 'jpeg', 'svs', 'vms', 'vmu', 'ndpi', 'scn', 'svslide', 'bif']
-    
+    file_formats = ['dcm', 'zip', 'tif', 'tiff', 'jpg', 'jpeg', 'svs', 'vms', 'vmu', 'ndpi', 'scn', 'svslide', 'bif', 'mrxs']
+    logger.info("Upload images: {}".format([file.filename for file in files]))
     path = os.path.join(STORAGE_PATH,groupID)
     os.mkdir(path)
 
     await addGroup(groupID, groupName)
-
+    logger.info("Group {} created".format(groupName))
     #copying files
     for file in files:
         fileName = file.filename
@@ -66,35 +66,44 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
                 # if len(os.listdir(path)) == 0:
                 #     os.rmdir(path)
                 errors += "There was an error uploading the file {}".format(fileName)
+                logger.error("There was an error uploading the file {}".format(fileName))
                 isCopied = False
             finally:
                 file.file.close()
         else:
             errors += "There was an error uploading the file {} - wrong format".format(fileName)
+            logger.error("There was an error uploading the file {} - wrong format".format(fileName))
             isCopied = False
 
         if isCopied:
             if fileExt == 'dcm':
                 imageType = 'DICOM'
-                (metadata,isMiniatured) = getAttributesAndMakeMiniatureDCM(url)
+                (metadata,isMiniatured) = getAttributesAndMakeMiniatureDCM(url, url)
                 await addImage(fileName, imageType, description, url, metadata, groupID, groupName)
             elif fileExt == 'zip':
                 imageName = ''
                 newuid = uuid.uuid4()
                 workDirID = str(newuid)
                 workDirPath = os.path.join(WORK_DIR_PATH,workDirID)
+                os.mkdir(workDirPath)
                 with zipfile.ZipFile(url, 'r') as zip_ref:
                     isFound, imageName = check_and_get_file_name(url, file_formats)
                     if isFound:
                         zip_ref.extractall(workDirPath)
                     else:
                         errors += "There was an error uploading the file {} - wrong zip structure".format(fileName)
+                        logger.error("There was an error uploading the file {} - wrong zip structure".format(fileName))
                         zip_ref.close()
                         os.remove(url)
                         shutil.rmtree(workDirPath)
                         continue
-                (metadata,isMiniatured) = getMetadataAndMakeMiniatureVips(os.path.join(workDirPath, imageName), url)
-                await addImage(fileName, 'vips', description, url, metadata, groupID, groupName)
+                if imageName.split('.')[-1].lower() == 'dcm':
+                    imageFormat = 'DICOM'
+                    (metadata,isMiniatured) = getAttributesAndMakeMiniatureDCM(os.path.join(workDirPath, imageName), url)
+                    await addImage(fileName, imageFormat, description, url, metadata, groupID, groupName)
+                else:
+                    (metadata,isMiniatured, imageFormat) = getMetadataAndMakeMiniatureVips(os.path.join(workDirPath, imageName), url)
+                    await addImage(fileName, imageFormat, description, url, metadata, groupID, groupName)
                 shutil.rmtree(workDirPath)
                 
             # elif fileExt == 'zip':
@@ -118,11 +127,12 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
             #     (metadata,isMiniatured) = getMetadataAndMakeMiniatureTIFF(url)
             #     await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
             elif fileExt == 'jpg' or fileExt == 'jpeg':
+                imageFormat = 'jpg'
                 (metadata,isMiniatured) = getMetadataAndMakeMiniatureJPG(url)
-                await addImage(fileName, fileExt, description, url, metadata, groupID, groupName)
+                await addImage(fileName, imageFormat, description, url, metadata, groupID, groupName)
             else:
-                (metadata,isMiniatured) = getMetadataAndMakeMiniatureVips(url, url)
-                await addImage(fileName, 'vips', description, url, metadata, groupID, groupName)
+                (metadata,isMiniatured, imageFormat) = getMetadataAndMakeMiniatureVips(url, url)
+                await addImage(fileName, imageFormat, description, url, metadata, groupID, groupName)
 
     return {"filenames": [file.filename for file in files], "errors": errors}
 
@@ -217,6 +227,11 @@ async def download_group(id: str):
             zip_object.write(url['URL'], basename(url['URL']))
     return zipName
 
+@app.put("/updatedesc/")
+async def update_desc(id: int, description: str):
+    # await UpdateImagesDesc(id, description)
+    return True
+
 def get_miniature_suffix(data):
     fileEXT = "." + data.split('.')[-1]
     if fileEXT in ['.jpg', '.jpeg']:
@@ -230,8 +245,9 @@ def delete_zip_package(zipPackageUrl :str):
 
 def check_and_get_file_name(zip_file_path, file_formats):
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+        print(zip_ref.namelist())
         for item in file_formats:
             for file_name in zip_ref.namelist():
-                if '.' + item in file_name.lower():
+                if str('.' + item) in file_name.lower():
                     return True, file_name
     return False, None

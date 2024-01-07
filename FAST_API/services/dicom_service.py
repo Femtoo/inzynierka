@@ -1,23 +1,40 @@
+import logging
 import pydicom as dicom
+from pydicom.pixel_data_handlers import convert_color_space
 from PIL import Image
 import numpy as np
 import math
+import re
 
-def getAttributesAndMakeMiniatureDCM(path):
+logger = logging.getLogger("main_logger")
+
+def getAttributesAndMakeMiniatureDCM(path, pathForMiniature):
     isMiniatured = True
     miniature_size = 256, 256
-    pathJPG = path.replace('.dcm','.jpg')
+    pathJPG = pathForMiniature.replace('.dcm','.jpg')
+    filename = path.split('\\')[-1]
+    logger.info(f"Reading file {filename}")
+
     try:
         ds = dicom.dcmread(path)
         # print(str(ds))
     except Exception:
+        logger.error(f"Error reading file {filename}")
         return ("There was an error reading file", False)
     finally:
         try:
+            logger.info(f"Making miniature for file {filename}")
             shape = ds.pixel_array.shape
+            pixel_array = ds.pixel_array
+            photometric_interpretation = ds.PhotometricInterpretation
+            if re.search(".*YBR_FULL_422.*", photometric_interpretation):
+                print("in")
+                pixel_array = convert_color_space(pixel_array, "YBR_FULL_422", "RGB", True)
+            elif re.search(".*YBR_FULL.*", photometric_interpretation):
+                pixel_array = convert_color_space(pixel_array, "YBR_FULL", "RGB", True)
             if(len(shape) == 4):
                 num_columns = int(math.sqrt(shape[0]))
-                frames = ds.pixel_array
+                frames = pixel_array
                 num_frames = frames.shape[0]
 
                 # Calculate the number of rows needed for the grid
@@ -52,15 +69,17 @@ def getAttributesAndMakeMiniatureDCM(path):
                 grid_image.thumbnail(miniature_size, Image.Resampling.LANCZOS)
                 grid_image.save(pathJPG,"JPEG")
             else:
-                image = ds.pixel_array
+                image = pixel_array
                 im = Image.fromarray(image)
                 im.thumbnail(miniature_size, Image.Resampling.LANCZOS)
                 im.save(pathJPG,"JPEG")
-        except Exception:
+        except Exception as e:
+            print(e)
+            logger.error(f"Error making miniature for file {filename}")
             isMiniatured=False
         return (str(ds),isMiniatured)
 
-getAttributesAndMakeMiniatureDCM(r'C:\Users\KT\inzynierka\testdata\DCM_1.dcm')
+# getAttributesAndMakeMiniatureDCM(r'C:\Users\KT\inzynierka\testdata\DCM_1.dcm')
 # metadata, ismin = getAttributesAndMakeMiniature('DCM_1.dcm')
 # print(ismin)
 # print(metadata)

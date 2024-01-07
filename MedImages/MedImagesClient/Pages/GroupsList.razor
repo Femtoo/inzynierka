@@ -18,6 +18,11 @@ else
     {
         <span class="text-danger">@error</span>
     }
+    <div class="form-group">
+        <input class="form-control" type="text" placeholder="Filter..."
+        @bind="Filter"
+        @bind:event="oninput">
+    </div>
     <table class="table">
         <thead>
             <tr>
@@ -29,6 +34,8 @@ else
         <tbody>
             @foreach (var image in groups)
             {
+                if (!IsVisible(image))
+                    continue;
                 <tr>
                     <td>@image.GroupName</td>
                     <td><button class="btn btn-danger" @onclick="() => OpenDelete(image.GroupId)">Delete Group</button></td>
@@ -60,6 +67,18 @@ else
     public bool DeleteShowBackdrop = false;
     private string? error = null;
     private string? deleteGroup = null;
+    public string Filter { get; set; }
+
+    public bool IsVisible(ImageGroup group)
+    {
+        if (string.IsNullOrEmpty(Filter))
+            return true;
+
+        if (group.GroupName.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
 
     public void OpenDelete(string groupId)
     {

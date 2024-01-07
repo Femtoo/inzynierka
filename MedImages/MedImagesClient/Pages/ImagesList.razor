@@ -22,6 +22,11 @@ else
     {
         <span class="text-danger">@error</span>
     }
+    <div class="form-group">
+        <input class="form-control" type="text" placeholder="Filter..."
+        @bind="Filter"
+        @bind:event="oninput">
+    </div>
     <table class="table">
         <thead>
             <tr>
@@ -37,6 +42,8 @@ else
         <tbody>
             @foreach (var image in images)
             {
+                if (!IsVisible(image))
+                    continue;
                 <tr>
                     <td><input @onchange="() => CheckItem(image.Id)" class="form-check-input" type="checkbox" value=""></td>
                     <td>@image.Title</td>
@@ -100,6 +107,21 @@ else
     public bool ShowBackdrop = false;
     public bool DeleteShowBackdrop = false;
     private string? error = null;
+    public string Filter { get; set; }
+
+    public bool IsVisible(ImageData image)
+    {
+        if (string.IsNullOrEmpty(Filter))
+            return true;
+
+        if (image.Title.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (image.Type.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
 
     public void OpenMetadata(string metadata)
     {
