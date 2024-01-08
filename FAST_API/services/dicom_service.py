@@ -28,7 +28,6 @@ def getAttributesAndMakeMiniatureDCM(path, pathForMiniature):
             pixel_array = ds.pixel_array
             photometric_interpretation = ds.PhotometricInterpretation
             if re.search(".*YBR_FULL_422.*", photometric_interpretation):
-                print("in")
                 pixel_array = convert_color_space(pixel_array, "YBR_FULL_422", "RGB", True)
             elif re.search(".*YBR_FULL.*", photometric_interpretation):
                 pixel_array = convert_color_space(pixel_array, "YBR_FULL", "RGB", True)

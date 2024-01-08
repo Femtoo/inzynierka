@@ -39,7 +39,7 @@ else
                 <tr>
                     <td>@image.GroupName</td>
                     <td><button class="btn btn-danger" @onclick="() => OpenDelete(image.GroupId)">Delete Group</button></td>
-                    <td><button @onclick="() => DownloadZip(image.GroupId)">Download</button></td>
+                    <td><button class="btn btn-success" @onclick="() => DownloadZip(image.GroupId)">Download</button></td>
                 </tr>
             }
         </tbody>

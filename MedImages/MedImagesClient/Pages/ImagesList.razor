@@ -14,8 +14,10 @@
 }
 else
 {
-    <button class="btn btn-warning" @onclick="DownloadZip">Download Images</button>
+    <button class="btn btn-success" @onclick="DownloadZip">Download Images</button>
     <button class="btn btn-danger" @onclick="OpenDelete">Delete Images</button>
+    <button class="btn btn-primary" @onclick="OpenChangeGroup">Change Group</button>
+    <button class="btn btn-warning" @onclick="() => OpenEditDesc(checkedItems.First())">Edit Description</button>
     @*<a class="btn" href="http://127.0.0.1:8000/downloadzip/?filename=images.zip" download="images.zip"
        role="button" target="=_top">download</a>*@
     @if(error != null)
@@ -50,7 +52,7 @@ else
                     <td>@image.Type</td>
                     <td>@image.Description</td>
                     <td>@image.GroupName</td>
-                    <td><button @onclick="() => OpenMetadata(image.Metadata)">Show metadata</button></td>
+                    <td><button class="btn btn-info" @onclick="() => OpenMetadata(image.Metadata)">Show metadata</button></td>
                     <td><img src="@string.Format("http://127.0.0.1:8000/showimage/?id={0}",image.Id)" width="200" height="200" /></td>
                 </tr>
             }
@@ -82,6 +84,28 @@ else
     </div>
 </div>
 
+<div class="modal @EditDescModalClass" tabindex="-1" role="dialog" style="display:@EditDescModalDisplay">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Description</h5>
+                <button type="button" class="close" @onclick="() => CloseEditDesc()" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="ChangeGroupID" class="form-group">
+                    <InputTextArea @bind-Value="EditDescription" class="form-control" />
+                </EditForm>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => UpdateDescription()">Edit</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => CloseEditDesc()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal @DeleteModalClass" tabindex="-1" role="dialog" style="display:@DeleteModalDisplay">
     <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
         <div class="modal-content">
@@ -96,16 +120,56 @@ else
     </div>
 </div>
 
+<div class="modal @GroupModalClass" tabindex="-1" role="dialog" style="display:@GroupModalDisplay">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Choose group</h5>
+            </div>
+            @if(groups != null)
+            {
+                <EditForm Model="ChangeGroupID" class="form-group">
+                    <InputSelect @bind-Value="ChangeGroupID" class="form-control" >
+                        <option value="" disabled selected hidden style="color: rgba(128, 128, 128, 0.7);">Select group</option>
+                        @foreach (var group in groups)
+                        {
+                            <option value="@group.GroupId">@group.GroupName</option>
+                        }
+                    </InputSelect>
+                </EditForm>
+            }
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => ChangeGroup(ChangeGroupID)">Change</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => CloseGroup()">Go back</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @code {
     private List<ImageData>? images;
+    private List<ImageGroup>? groups;
     private List<int> checkedItems = new();
     public string ModalDisplay = "none;";
     public string ModalClass = "";
-    public string DeleteModalDisplay = "none;";
-    public string DeleteModalClass = "";
     public string[]? ModalText = null;
     public bool ShowBackdrop = false;
+
+    public string DeleteModalDisplay = "none;";
+    public string DeleteModalClass = "";
     public bool DeleteShowBackdrop = false;
+
+    public string GroupModalDisplay = "none;";
+    public string GroupModalClass = "";
+    public string ChangeGroupID = "";
+    public bool GroupShowBackdrop = false;
+
+    public string EditDescModalDisplay = "none;";
+    public string EditDescModalClass = "";
+    public string EditDescription = "";
+    public int? EditDescriptionId = null;
+    public bool EditDescShowBackdrop = false;
+
     private string? error = null;
     public string Filter { get; set; }
 
@@ -141,6 +205,25 @@ else
         StateHasChanged();
     }
 
+    public void OpenChangeGroup()
+    {
+        GroupModalDisplay = "block;";
+        GroupModalClass = "Show";
+        GroupShowBackdrop = true;
+        StateHasChanged();
+    }
+
+    public void OpenEditDesc(int id)
+    {
+        var image = images.First(x => x.Id == id);
+        EditDescModalDisplay = "block;";
+        EditDescModalClass = "Show";
+        EditDescShowBackdrop = true;
+        EditDescription = image.Description;
+        EditDescriptionId = id;
+        StateHasChanged();
+    }
+
     public void CheckItem(int id)
     {
         if(checkedItems.Contains(id))
@@ -166,6 +249,25 @@ else
         DeleteModalDisplay = "none";
         DeleteModalClass = "";
         DeleteShowBackdrop = false;
+        StateHasChanged();
+    }
+
+    public void CloseGroup()
+    {
+        GroupModalDisplay = "none";
+        GroupModalClass = "";
+        GroupShowBackdrop = false;
+        ChangeGroupID = "";
+        StateHasChanged();
+    }
+
+    public void CloseEditDesc()
+    {
+        EditDescModalDisplay = "none";
+        EditDescModalClass = "";
+        EditDescShowBackdrop = false;
+        EditDescription = "";
+        EditDescriptionId = null;
         StateHasChanged();
     }
 
@@ -198,8 +300,32 @@ else
         }
     }
 
+    private async Task ChangeGroup(string groupId)
+    {
+        if (checkedItems.Count != 0 && groupId != "")
+        {
+            var response = await Http.PostAsJsonAsync("http://127.0.0.1:8000/updategroup/", new { ids = checkedItems, groupID = groupId });
+            CloseGroup();
+            images = await Http.GetFromJsonAsync<List<ImageData>>("http://127.0.0.1:8000/getimages/");
+            ChangeGroupID = "";
+        }
+    }
+
+    private async Task UpdateDescription()
+    {
+        if (EditDescriptionId != null)
+        {
+            var response = await Http.PutAsJsonAsync<UpdateDescriptionDTO>("http://127.0.0.1:8000/updatedesc/", new UpdateDescriptionDTO {Id = EditDescriptionId, Description = EditDescription});
+            CloseEditDesc();
+            images = await Http.GetFromJsonAsync<List<ImageData>>("http://127.0.0.1:8000/getimages/");
+            EditDescriptionId = null;
+            EditDescription = "";
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         images = await Http.GetFromJsonAsync<List<ImageData>>("http://127.0.0.1:8000/getimages/");
+        groups = await Http.GetFromJsonAsync<List<ImageGroup>>("http://127.0.0.1:8000/getgroups/");
     }
 }

@@ -10,15 +10,15 @@
 }else
 {
     <h3>Add Images</h3>
-    <EditForm Model="@Model" OnSubmit="@Submit">
+    <EditForm Model="@Model" OnSubmit="@Submit" class="form-group">
         <div>
             <div class="mb-3">
                 <label for="exampleFormControlInput1" class="form-label">Group Name</label>
-                <InputText @bind-Value="Model!.GroupName" id="exampleFormControlInput1" placeholder="DICOM PHOTOS v3" />
+                <InputText @bind-Value="Model!.GroupName" id="exampleFormControlInput1" class="form-control" placeholder="DICOM PHOTOS v3" />
             </div>
             <div class="mb-3">
                 <label for="exampleFormControlInput2" class="form-label">Description</label>
-                <InputTextArea @bind-Value="Model!.Description" id="exampleFormControlInput2" placeholder="about this, this and this" />
+                <InputTextArea @bind-Value="Model!.Description" id="exampleFormControlInput2" class="form-control" placeholder="about this, this and this" />
             </div>
             @if (error2 != null)
             {
@@ -26,13 +26,13 @@
             }
             <div class="mb-3">
                 <label for="exampleFormControlInput3" class="form-label">Files/Images</label>
-                <InputFile OnChange="OnInputFileChange" multiple id="exampleFormControlInput3" />
+                <InputFile OnChange="OnInputFileChange" class="form-control" multiple id="exampleFormControlInput3" />
             </div>
             @if (error != null)
             {
                 <span class="text-danger">@error</span>
             }
-            <button type="submit">Submit</button>
+            <button class="btn btn-success" type="submit">Submit</button>
         </div>
     </EditForm>
 }

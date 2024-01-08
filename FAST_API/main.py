@@ -1,6 +1,7 @@
 import zipfile
 from fastapi import BackgroundTasks, FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from services.mirax_service import getMetadataAndMakeMiniatureMRX
 from services.dicom_service import getAttributesAndMakeMiniatureDCM
 from services.tiff_service import getMetadataAndMakeMiniatureTIFF
@@ -24,6 +25,11 @@ WORK_DIR_PATH = r'C:\Users\KT\inzynierka\processImagesDir'
 
 dictConfig(LogConfig().model_dump())
 logger = logging.getLogger("main_logger")
+
+class ChangeGroupDTO(BaseModel):
+    ids: List[int]
+    groupID: str
+
 app = FastAPI()
 
 origins = [
@@ -172,21 +178,23 @@ async def delete_group(id):
     return True
 
 @app.post("/updategroup/")
-async def update_group(ids: List[int], groupID: str):
+async def update_group(dto: ChangeGroupDTO):
+    ids = dto.ids
+    groupID = dto.groupID
     groupPath = os.path.join(STORAGE_PATH, groupID)
-    try:
-        group = await GetGroupById(groupID)
-        imgs = await GetImages(ids)
-        await UpdateImagesGroup(ids, groupID, group['GROUPNAME'])
-        await UpdateImagesURL(imgs, groupPath)
-        print("yuyuyu")
-        for img in imgs:
-            shutil.move(img['URL'], os.path.join(groupPath, img['TITLE']))
-            shutil.move(get_miniature_suffix(img['URL']), os.path.join(groupPath, get_miniature_suffix(img['TITLE'])))
-    except Exception as e:
-        print(e)
-        return False
-    return True
+    if groupID != '':
+        try:
+            group = await GetGroupById(groupID)
+            imgs = await GetImages(ids)
+            await UpdateImagesGroup(ids, groupID, group['GROUPNAME'])
+            await UpdateImagesURL(imgs, groupPath)
+            for img in imgs:
+                shutil.move(img['URL'], os.path.join(groupPath, img['TITLE']))
+                shutil.move(get_miniature_suffix(img['URL']), os.path.join(groupPath, get_miniature_suffix(img['TITLE'])))
+        except Exception as e:
+            print(e)
+            return False
+        return True
 
 @app.post("/downloadimages/")
 async def download_images(ids: List[int]):
