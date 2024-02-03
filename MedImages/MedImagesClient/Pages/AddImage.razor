@@ -12,15 +12,19 @@
     <h3>Add Images</h3>
     <EditForm Model="@Model" OnSubmit="@Submit" class="form-group">
         <div>
+            @if (error2 != null)
+            {
+                <span class="text-danger">@error2</span>
+            }
             <div class="mb-3">
                 <label for="exampleFormControlInput1" class="form-label">Group Name</label>
                 <InputText @bind-Value="Model!.GroupName" id="exampleFormControlInput1" class="form-control" placeholder="DICOM PHOTOS v3" />
             </div>
             <div class="mb-3">
                 <label for="exampleFormControlInput2" class="form-label">Description</label>
-                <InputTextArea @bind-Value="Model!.Description" id="exampleFormControlInput2" class="form-control" placeholder="about this, this and this" />
+                <InputTextArea @bind-Value="Model!.Description" id="exampleFormControlInput2" class="form-control" placeholder="date, tissue sample, format..." />
             </div>
-            @if (error2 != null)
+            @if (error != null)
             {
                 <span class="text-danger">@error</span>
             }
@@ -28,10 +32,6 @@
                 <label for="exampleFormControlInput3" class="form-label">Files/Images</label>
                 <InputFile OnChange="OnInputFileChange" class="form-control" multiple id="exampleFormControlInput3" />
             </div>
-            @if (error != null)
-            {
-                <span class="text-danger">@error</span>
-            }
             <button class="btn btn-success" type="submit">Submit</button>
         </div>
     </EditForm>
@@ -58,19 +58,23 @@
 
     private async Task Submit()
     {
-        if(Model.GroupName == string.Empty || Model.Description == string.Empty)
+        bool isFormValid = true;
+        if (String.IsNullOrWhiteSpace(Model.GroupName) || String.IsNullOrWhiteSpace(Model.Description))
         {
             error2 = "Please provide group name and description values";
-            return;
-        }
-        else if(browserFiles==null)
+            isFormValid = false;
+        }if(browserFiles==null || browserFiles.Count == 0)
         {
             error = "You need to choose some files";
-            return;
+            isFormValid = false;
         } else
         {
             error = null;
             error2 = null;
+        }
+        if (!isFormValid)
+        {
+            return;
         }
 
         using var content = new MultipartFormDataContent();

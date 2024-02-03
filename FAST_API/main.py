@@ -7,7 +7,7 @@ from services.dicom_service import getAttributesAndMakeMiniatureDCM
 from services.tiff_service import getMetadataAndMakeMiniatureTIFF
 from services.jpg_service import getMetadataAndMakeMiniatureJPG
 from services.vips_service import getMetadataAndMakeMiniatureVips
-from db_functions import GetImageById, addImage, addGroup, GetAllImages, deleteImages, deleteGroup, GetUrlsByIds, GetAllGroups, GetImagesByGroupId, GetImages, UpdateImagesGroup, UpdateImagesURL, GetGroupById
+from db_functions import GetImageById, addImage, addGroup, GetAllImages, deleteImages, deleteGroup, GetUrlsByIds, GetAllGroups, GetImagesByGroupId, GetImages, UpdateImagesGroup, UpdateImagesURL, GetGroupById, UpdateImagesDesc
 from starlette.responses import FileResponse
 from typing import List
 from zipfile import ZipFile
@@ -30,6 +30,10 @@ class ChangeGroupDTO(BaseModel):
     ids: List[int]
     groupID: str
 
+class ChangeDescDTO(BaseModel):
+    id: int
+    description: str
+
 app = FastAPI()
 
 origins = [
@@ -45,7 +49,7 @@ app.add_middleware(
 )
 
 @app.post("/uploadimages/")
-async def create_upload_files(files: List[UploadFile] = File(...), groupName: str = Form(...), description: str = Form(...)):
+async def upload_files(files: List[UploadFile] = File(...), groupName: str = Form(...), description: str = Form(...)):
     uid = uuid.uuid4()
     groupID = str(uid)
     errors = ""
@@ -93,7 +97,7 @@ async def create_upload_files(files: List[UploadFile] = File(...), groupName: st
                 workDirPath = os.path.join(WORK_DIR_PATH,workDirID)
                 os.mkdir(workDirPath)
                 with zipfile.ZipFile(url, 'r') as zip_ref:
-                    isFound, imageName = check_and_get_file_name(url, file_formats)
+                    isFound, imageName = check_and_get_file_name(url)
                     if isFound:
                         zip_ref.extractall(workDirPath)
                     else:
@@ -177,7 +181,7 @@ async def delete_group(id):
         return False
     return True
 
-@app.post("/updategroup/")
+@app.put("/updategroup/")
 async def update_group(dto: ChangeGroupDTO):
     ids = dto.ids
     groupID = dto.groupID
@@ -212,7 +216,7 @@ async def download_images(ids: List[int]):
 async def download_zip(filename: str, background_tasks: BackgroundTasks):
     zipUrl = os.path.join(STORAGE_PATH,filename)
     background_tasks.add_task(delete_zip_package, zipUrl)
-    return FileResponse(zipUrl, media_type='multipart/form-data', filename='images.zip')
+    return FileResponse(zipUrl, media_type='multipart/form-data', filename=filename+'.zip')
 
 @app.get("/showimage/")
 async def show_image(id: int):
@@ -236,8 +240,8 @@ async def download_group(id: str):
     return zipName
 
 @app.put("/updatedesc/")
-async def update_desc(id: int, description: str):
-    # await UpdateImagesDesc(id, description)
+async def update_image_description(dto: ChangeDescDTO):
+    await UpdateImagesDesc(dto.id, dto.description)
     return True
 
 def get_miniature_suffix(data):
@@ -251,10 +255,11 @@ def get_miniature_suffix(data):
 def delete_zip_package(zipPackageUrl :str):
     os.remove(zipPackageUrl)
 
-def check_and_get_file_name(zip_file_path, file_formats):
+def check_and_get_file_name(zip_file_path):
+    formats = ['dcm', 'zip', 'tif', 'tiff', 'svs', 'vms', 'vmu', 'ndpi', 'scn', 'svslide', 'bif', 'mrxs']
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
         print(zip_ref.namelist())
-        for item in file_formats:
+        for item in formats:
             for file_name in zip_ref.namelist():
                 if str('.' + item) in file_name.lower():
                     return True, file_name

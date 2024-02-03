@@ -181,6 +181,15 @@ async def GetAllGroups():
     conn.close()
     return result
 
+async def UpdateImagesDesc(id, desc):
+    sql = '''UPDATE IMAGES SET DESCRIPTION=? WHERE ID=?'''
+    conn = sqlite3.connect(DATABASE)
+    cur = conn.cursor()
+    cur.execute(sql, (desc, id))
+    conn.commit()
+    conn.close()
+    return
+
 def dict_factory(cursor, row):
     d = {}
     for idx, col in enumerate(cursor.description):
